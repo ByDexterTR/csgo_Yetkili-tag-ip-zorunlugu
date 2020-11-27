@@ -1,35 +1,18 @@
 #include <sourcemod>
-#include <sdktools>
 #include <cstrike>
-#include <sdkhooks>
-#include <multicolors>
-
-// char //
-char ClanTagName[512];
-char DomainName[512];
-
-// ConVar //
-ConVar g_sClanTagName;
-ConVar g_sDomainName;
-
-// Handle //
-Handle Admingrupenable;
-Handle Adminisimenable;
 
 #pragma semicolon 1
 #pragma newdecls required
 
-#define DEBUG
-#define PLUGIN_AUTHOR "ByDexter"
-#define PLUGIN_VERSION "1.0"
+ConVar g_sClanTagName = null, g_sDomainName = null, Admingrupenable = null, Adminisimenable = null;
 
 public Plugin myinfo = 
 {
 	name = "Yetkili ip ve tag zorunluğu", 
-	author = PLUGIN_AUTHOR, 
+	author = "ByDexter", 
 	description = "Yetkili olan oyuncular ip ve ya tag almazsa komut kullanmasını engeller", 
-	version = PLUGIN_VERSION, 
-	url = "https://steamcommunity.com/id/ByDexterTR/"
+	version = "1.2", 
+	url = "https://steamcommunity.com/id/ByDexterTR - ByDexter#5494"
 };
 
 public void OnPluginStart()
@@ -39,16 +22,15 @@ public void OnPluginStart()
 	Admingrupenable = CreateConVar("admin_clantag_enable", "1", "Group Tag Plugin Enabled/Disabled", FCVAR_NOTIFY, true, 0.0, true, 1.0);
 	Adminisimenable = CreateConVar("admin_serverip_enable", "0", "Server Ip Plugin Enabled/Disabled", FCVAR_NOTIFY, true, 0.0, true, 1.0);
 	AutoExecConfig(true, "YetkiliTagZorunlugu", "ByDexter");
+	LoadConfig();
 }
 
 void LoadConfig()
 {
 	KeyValues Kv = new KeyValues("ByDexter");
-	
 	char sBuffer[256];
 	BuildPath(Path_SM, sBuffer, sizeof(sBuffer), "configs/dexter/command_list.ini");
-	if (!FileToKeyValues(Kv, sBuffer)) SetFailState("%s dosyası bulunamadı.", sBuffer);
-	
+	if (!FileToKeyValues(Kv, sBuffer))SetFailState("%s dosyası bulunamadı.", sBuffer);
 	if (Kv.GotoFirstSubKey())
 	{
 		do
@@ -57,7 +39,7 @@ void LoadConfig()
 			{
 				AddCommandListener(Control_CommandAdmin, sBuffer);
 			}
-		} 
+		}
 		while (Kv.GotoNextKey());
 	}
 	delete Kv;
@@ -66,42 +48,34 @@ void LoadConfig()
 public void OnMapStart()
 {
 	LoadConfig();
-	g_sClanTagName.GetString(ClanTagName, sizeof(ClanTagName));
-	g_sDomainName.GetString(DomainName, sizeof(DomainName));
 }
 
 public Action Control_CommandAdmin(int client, char[] command, int args)
 {
-	if(GetUserAdmin(client) != INVALID_ADMIN_ID)
+	if (GetUserAdmin(client) != INVALID_ADMIN_ID)
 	{
-		if(GetConVarInt(Admingrupenable))
+		if (Admingrupenable.BoolValue)
 		{
-			char clanTag[16];
-			CS_GetClientClanTag(client, clanTag, 16);
-			if(StrEqual(clanTag, ClanTagName, false))
+			char clanTag[32], ClanTagName[512];
+			g_sClanTagName.GetString(ClanTagName, sizeof(ClanTagName));
+			CS_GetClientClanTag(client, clanTag, sizeof(clanTag));
+			if (strcmp(clanTag, ClanTagName, false) == -1)
 			{
-				// Boş aynı nora gibi
-			}
-			else
-			{
-				CPrintToChat(client, "{darkred}[ByDexter] {default}Bu komutu kullanmak için {green}klan tagı kullanmanız gerekiyor");
+				ReplyToCommand(client, "[SM] \x01Bu komutu kullanmak için \x10%s \x01grup etiketimizi kullanmanız gerek", ClanTagName);
 				return Plugin_Stop;
 			}
 		}
-		if(GetConVarInt(Adminisimenable))
+		if (Adminisimenable.BoolValue)
 		{
-			char playerName[32];
-			GetClientName(client, playerName, 32);
-			if(StrContains(playerName, DomainName, false) != -1)
+			char DomainName[512], playerName[MAX_NAME_LENGTH];
+			g_sDomainName.GetString(DomainName, sizeof(DomainName));
+			GetClientName(client, playerName, sizeof(playerName));
+			if (strcmp(playerName, DomainName, false) == -1)
 			{
-				// Boş aynı nora gibi
-			}
-			else
-			{
-				CPrintToChat(client, "{darkred}[ByDexter] {default}Bu komutu kullanmak için {green}isminize ip almanız gerekiyor");
+				ReplyToCommand(client, "[SM] \x01Bu komutu kullanmak için isminizde \x10%s \x01bulunması gerek!", DomainName);
 				return Plugin_Stop;
 			}
 		}
 	}
 	return Plugin_Continue;
-}
+} 
